@@ -53,7 +53,7 @@ import org.junit.runners.model.TestClass;
 
 public class H2Rule extends ExternalResource {
 
-  private static final Map<Class<?>, TestClass> testClasses = Collections.synchronizedMap(new HashMap<Class<?>, TestClass>());
+  private static final Map<Class<?>, TestClass> testClasses = new HashMap<Class<?>, TestClass>();
 
   private Object testInstance;
 
@@ -76,13 +76,13 @@ public class H2Rule extends ExternalResource {
 
   @Override
   protected void before() throws Throwable {
-    this.testInstance = getTest(this.base);
+    this.testInstance = this.getTestInstance();
     this.inject();
   }
 
   private void inject() throws Exception {
     if (this.testInstance != null) {
-      final TestClass testClass = getTestClass(this.description);
+      final TestClass testClass = this.getTestClass();
       if (testClass != null) {
         
         final Collection<FrameworkField> annotatedFields = testClass.getAnnotatedFields(H2Connection.class);
@@ -134,16 +134,30 @@ public class H2Rule extends ExternalResource {
         }
       }
     }
+    this.connections = null;
   }
 
+  private final TestClass getTestClass() {
+    TestClass testClass = null;
+    final Description description = this.description;
+    if (description != null) {
+      final Class<?> c = description.getTestClass();
+      if (c != null) {
+        synchronized (testClasses) {
+          testClass = testClasses.get(c);
+          if (testClass == null) {
+            testClass = new TestClass(c);
+            testClasses.put(c, testClass);
+          }
+        }
+      }
+    }
+    return testClass;
+  }
 
-  /*
-   * Static methods.
-   */
-
-
-  private static final Object getTest(Statement statement) throws Exception {
+  private final Object getTestInstance() throws Exception {
     Object test = null;
+    Statement statement = this.base;
     if (statement != null) {
       if (statement instanceof ExpectException) {
         final Field fNext = ExpectException.class.getDeclaredField("fNext");
@@ -163,21 +177,6 @@ public class H2Rule extends ExternalResource {
       }
     }
     return test;
-  }
-
-  public static final TestClass getTestClass(final Description description) {
-    TestClass testClass = null;
-    if (description != null) {
-      final Class<?> c = description.getTestClass();
-      if (c != null) {
-        testClass = testClasses.get(c);
-        if (testClass == null) {
-          testClass = new TestClass(c);
-          testClasses.put(c, testClass);
-        }
-      }
-    }
-    return testClass;
   }
 
 }
