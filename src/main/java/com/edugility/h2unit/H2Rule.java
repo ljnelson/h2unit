@@ -55,57 +55,49 @@ public class H2Rule extends ExternalResource {
 
   private static final Map<Class<?>, TestClass> testClasses = new HashMap<Class<?>, TestClass>();
 
-  private Object testInstance;
-
-  private Statement base;
+  private final Object testInstance;
 
   private Description description;
 
   private Collection<Connection> connections;
 
-  public H2Rule() {
+  public H2Rule(final Object testInstance) {
     super();
+    this.testInstance = testInstance;
+    Assert.assertNotNull(testInstance);
   }
 
   @Override
   public Statement apply(final Statement base, final Description description) {
-    this.base = base;
     this.description = description;
-    return super.apply(base, description);
+    final Statement s = super.apply(base, description);
+    return s;
   }
 
   @Override
   protected void before() throws Throwable {
-    this.testInstance = this.getTestInstance();
-    this.inject();
-  }
-
-  private void inject() throws Exception {
-    if (this.testInstance != null) {
-      final TestClass testClass = this.getTestClass();
-      if (testClass != null) {
-        
-        final Collection<FrameworkField> annotatedFields = testClass.getAnnotatedFields(H2Connection.class);
-        if (annotatedFields != null && !annotatedFields.isEmpty()) {
-          for (final FrameworkField ff : annotatedFields) {
-            if (ff != null) {
-              final Field f = ff.getField();
-              if (f != null && Connection.class.isAssignableFrom(f.getType())) {
-                final H2Connection h2Connection = f.getAnnotation(H2Connection.class);
-                Assert.assertNotNull(h2Connection);
-                final Connection connection = new H2ConnectionDescriptor(h2Connection, this.description).getConnection();
-                if (this.connections == null) {
-                  this.connections = new ArrayList<Connection>(annotatedFields.size());
-                }
-                this.connections.add(connection);
-                final boolean accessible = f.isAccessible();
-                f.setAccessible(true);
-                try {
-                  f.set(testInstance, connection);
-                } finally {
-                  f.setAccessible(accessible);
-                }
-              }
+    Assert.assertNotNull(this.testInstance);
+    final TestClass testClass = this.getTestClass();
+    Assert.assertNotNull(testClass);
+    final Collection<FrameworkField> annotatedFields = testClass.getAnnotatedFields(H2Connection.class);
+    if (annotatedFields != null && !annotatedFields.isEmpty()) {
+      for (final FrameworkField ff : annotatedFields) {
+        if (ff != null) {
+          final Field f = ff.getField();
+          if (f != null && Connection.class.isAssignableFrom(f.getType())) {
+            final H2Connection h2Connection = f.getAnnotation(H2Connection.class);
+            Assert.assertNotNull(h2Connection);
+            final Connection connection = new H2ConnectionDescriptor(h2Connection, this.description).getConnection();
+            if (this.connections == null) {
+              this.connections = new ArrayList<Connection>(annotatedFields.size());
+            }
+            this.connections.add(connection);
+            final boolean accessible = f.isAccessible();
+            f.setAccessible(true);
+            try {
+              f.set(this.testInstance, connection);
+            } finally {
+              f.setAccessible(accessible);
             }
           }
         }
@@ -115,8 +107,6 @@ public class H2Rule extends ExternalResource {
 
   @Override
   protected void after() {
-    this.testInstance = null;
-    this.base = null;
     this.description = null;
     if (this.connections != null && !this.connections.isEmpty()) {
       final Iterator<Connection> connectionIterator = this.connections.iterator();
@@ -153,30 +143,6 @@ public class H2Rule extends ExternalResource {
       }
     }
     return testClass;
-  }
-
-  private final Object getTestInstance() throws Exception {
-    Object test = null;
-    Statement statement = this.base;
-    if (statement != null) {
-      if (statement instanceof ExpectException) {
-        final Field fNext = ExpectException.class.getDeclaredField("fNext");
-        Assert.assertNotNull(fNext);
-        fNext.setAccessible(true);
-        statement = (Statement)fNext.get(statement);
-        fNext.setAccessible(false);
-      }
-      try {
-        final Field fTarget = statement.getClass().getDeclaredField("fTarget");
-        Assert.assertNotNull(fTarget);
-        fTarget.setAccessible(true);
-        test = fTarget.get(statement);
-        fTarget.setAccessible(false);
-      } catch (final Exception ohWell) {
-        ohWell.printStackTrace();
-      }
-    }
-    return test;
   }
 
 }

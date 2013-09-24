@@ -55,8 +55,11 @@ public class TestCaseH2Rule {
   @H2Connection(url = "jdbc:h2:mem:test2", user = "SA", password = "", threadSafe = false)
   private Connection connection2;
 
+  @javax.annotation.Generated(comments = "Test", value = "Test")
+  private Connection unannotatedConnection;
+
   @Rule
-  public final H2Rule h2Rule = new H2Rule();
+  public final H2Rule h2Rule = new H2Rule(this);
 
   public TestCaseH2Rule() throws Exception {
     super();
